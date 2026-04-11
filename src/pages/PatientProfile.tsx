@@ -1,226 +1,173 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Calendar, MapPin, ScanLine } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, ScanLine, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate, useParams } from "react-router-dom";
-import { ApiConfigHint } from "@/components/ApiConfigHint";
-import { isApiConfigured } from "@/lib/api/config";
-import { fetchPatient, fetchPatientLesions } from "@/lib/api/requests";
-import { ApiError } from "@/lib/api/client";
-import type { RiskLevel } from "@/lib/api/types";
+import { Separator } from "@/components/ui/separator";
 
-const riskConfig: Record<
-  RiskLevel,
-  { label: string; className: string }
-> = {
-  low: { label: "Baixo", className: "bg-risk-low-subtle text-risk-low" },
-  medium: { label: "Atenção", className: "bg-risk-medium-subtle text-risk-medium" },
-  high: { label: "Alto", className: "bg-risk-high-subtle text-risk-high" },
+const riskConfig = {
+  "BAIXO RISCO": { label: "Baixo", className: "bg-green-500/10 text-green-600", dot: "bg-green-500" },
+  "ATENÇÃO": { label: "Atenção", className: "bg-yellow-500/10 text-yellow-600", dot: "bg-yellow-500" },
+  "ALTO RISCO": { label: "Alto", className: "bg-red-500/10 text-red-600", dot: "bg-red-500" },
 };
 
-const overallRiskLabel: Record<RiskLevel, string> = {
-  low: "Baixo Risco",
-  medium: "Atenção",
-  high: "Alto Risco",
-};
-
-function initialsFromName(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase() ?? "")
-    .join("");
+interface PatientData {
+  paciente: {
+    id: number;
+    nome: string;
+    idade: number;
+    cpf: string;
+    risco: string;
+    lesoes: number;
+  };
+  lesoes: Array<{
+    id: number;
+    data: string;
+    localizacao: string;
+    descricao: string;
+    risco: string;
+  }>;
 }
 
 export default function PatientProfile() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const apiOn = isApiConfigured();
+  const { id } = useParams();
+  const [data, setData] = useState<PatientData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const patientQuery = useQuery({
-    queryKey: ["patients", id],
-    queryFn: () => fetchPatient(id!),
-    enabled: apiOn && Boolean(id),
-  });
+  useEffect(() => {
+    const fetchPatientDetails = async () => {
+      const token = localStorage.getItem("access_token");
+      try {
+        const response = await fetch(`http://localhost:8000/pacientes/${id}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
 
-  const lesionsQuery = useQuery({
-    queryKey: ["patients", id, "lesions"],
-    queryFn: () => fetchPatientLesions(id!),
-    enabled: apiOn && Boolean(id) && patientQuery.isSuccess,
-  });
+        if (response.ok) {
+          const result = await response.json();
+          setData(result);
+        } else {
+          console.error("Erro ao buscar detalhes");
+          navigate("/patients"); 
+        }
+      } catch (error) {
+        console.error("Erro na requisição:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const patient = patientQuery.data;
-  const timeline = lesionsQuery.data ?? [];
-  const initials = patient?.initials?.trim() || (patient ? initialsFromName(patient.name) : "");
+    fetchPatientDetails();
+  }, [id, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Carregando prontuário...</p>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { paciente, lesoes } = data;
+  const patientInitials = paciente.nome.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const currentRisk = riskConfig[paciente.risco as keyof typeof riskConfig] || riskConfig["BAIXO RISCO"];
 
   return (
     <div className="space-y-6">
-      {!apiOn && <ApiConfigHint />}
-
-      <button
-        type="button"
-        onClick={() => navigate("/patients")}
+      <button 
+        onClick={() => navigate("/patients")} 
         className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Voltar para Pacientes
       </button>
 
-      {apiOn && patientQuery.isError && (
-        <p className="text-sm text-destructive">
-          {patientQuery.error instanceof ApiError
-            ? patientQuery.error.message
-            : "Não foi possível carregar o paciente."}
-        </p>
-      )}
-
-      {apiOn && patientQuery.isLoading && (
-        <Skeleton className="h-40 w-full rounded-xl" />
-      )}
-
-      {apiOn && !patientQuery.isLoading && !patient && !patientQuery.isError && (
-        <p className="text-sm text-muted-foreground">Paciente não encontrado.</p>
-      )}
-
-      {patient && (
-        <>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Card className="shadow-surface border-border">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-lg font-bold text-primary">{initials || "?"}</span>
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-bold text-foreground">{patient.name}</h1>
-                      <p className="text-sm text-muted-foreground">
-                        {patient.age} anos
-                        {patient.gender ? ` · ${patient.gender}` : ""}
-                        {patient.cpfMasked ? ` · CPF: ${patient.cpfMasked}` : ""}
-                      </p>
-                      {(patient.fitzpatrickType != null || patient.familyHistory != null) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {patient.fitzpatrickType != null && (
-                            <span>Fototipo {patient.fitzpatrickType} (Fitzpatrick)</span>
-                          )}
-                          {patient.fitzpatrickType != null && patient.familyHistory != null && " · "}
-                          {patient.familyHistory != null && (
-                            <span>Histórico familiar: {patient.familyHistory ? "Sim" : "Não"}</span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      type="button"
-                      onClick={() => navigate("/mapping")}
-                    >
-                      <ScanLine className="w-3.5 h-3.5" /> Nova Lesão
-                    </Button>
-                    <Badge
-                      variant="secondary"
-                      className={`${riskConfig[patient.overallRisk].className} text-[10px] font-bold uppercase`}
-                    >
-                      {overallRiskLabel[patient.overallRisk]}
-                    </Badge>
-                  </div>
+      {/* Card do Perfil */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+        <Card className="shadow-surface border-border">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-lg font-bold text-primary">{patientInitials}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">{paciente.nome}</h1>
+                  <p className="text-sm text-muted-foreground">{paciente.idade} anos · {paciente.cpf}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Dados reais do prontuário eletrônico</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/mapping/${id}`)}>
+                  <ScanLine className="w-3.5 h-3.5" /> Nova Lesão
+                </Button>
+                <Badge variant="secondary" className={`text-[10px] font-bold uppercase ${currentRisk.className}`}>
+                  {paciente.risco}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-          >
-            <Card className="shadow-surface border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                  Histórico de Lesões
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {lesionsQuery.isLoading ? (
-                  <div className="space-y-2 py-2">
-                    {[1, 2, 3].map((k) => (
-                      <Skeleton key={k} className="h-16 w-full" />
-                    ))}
-                  </div>
-                ) : lesionsQuery.isError ? (
-                  <p className="text-sm text-destructive">
-                    {lesionsQuery.error instanceof ApiError
-                      ? lesionsQuery.error.message
-                      : "Não foi possível carregar o histórico."}
-                  </p>
-                ) : timeline.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">Nenhum registro de lesão.</p>
-                ) : (
-                  <div className="space-y-0">
-                    {timeline.map((entry, i) => {
-                      const r = riskConfig[entry.risk];
-                      return (
-                        <div key={entry.id}>
-                          <div className="flex items-start gap-4 py-4">
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={`w-3 h-3 rounded-full ${
-                                  entry.risk === "high"
-                                    ? "bg-destructive"
-                                    : entry.risk === "medium"
-                                      ? "bg-warning"
-                                      : "bg-success"
-                                }`}
-                              />
-                              {i < timeline.length - 1 && (
-                                <div className="w-px h-full bg-border mt-1" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground tabular-nums">
-                                    {entry.date}
-                                  </span>
-                                </div>
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-[10px] font-bold uppercase ${r.className}`}
-                                >
-                                  {r.label}
-                                </Badge>
-                              </div>
-                              <p className="text-sm font-medium text-foreground mt-1 flex items-center gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-primary" /> {entry.zone}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>
-                            </div>
-                          </div>
-                          {i < timeline.length - 1 && <Separator />}
+      {}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <Card className="shadow-surface border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              Histórico de Lesões ({lesoes.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {lesoes.length > 0 ? (
+                lesoes.map((entry, i) => {
+                  const r = riskConfig[entry.risco as keyof typeof riskConfig] || riskConfig["BAIXO RISCO"];
+                  return (
+                    <div key={entry.id}>
+                      <div className="flex items-start gap-4 py-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full mt-1.5 ${r.dot}`} />
+                          {i < lesoes.length - 1 && <div className="w-px h-full bg-border mt-1" />}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        </>
-      )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground tabular-nums">{entry.data}</span>
+                            </div>
+                            <Badge variant="secondary" className={`text-[10px] font-bold uppercase ${r.className}`}>
+                              {r.label}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium text-foreground mt-1 flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-primary" /> {entry.localizacao}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">{entry.descricao}</p>
+                        </div>
+                      </div>
+                      {i < lesoes.length - 1 && <Separator />}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center border-2 border-dashed rounded-lg">
+                  <p className="text-sm text-muted-foreground">Nenhuma lesão mapeada para este paciente.</p>
+                  <Button variant="link" className="text-primary text-xs" onClick={() => navigate(`/mapping/${id}`)}>
+                    Iniciar primeiro mapeamento
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

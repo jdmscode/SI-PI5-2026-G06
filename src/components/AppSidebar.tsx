@@ -8,7 +8,7 @@ import {
   Activity,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { clearAuthToken } from "@/lib/auth";
+import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +37,9 @@ const secondaryItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const location = useLocation();
+  const currentPath = location.pathname;
+  const isActive = (path: string) => currentPath.startsWith(path);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -47,8 +50,8 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-foreground tracking-tight">Melanoma Mapper</span>
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Pro</span>
+              <span className="text-sm font-bold text-foreground tracking-tight">DermaScan</span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">AI Clinical</span>
             </div>
           )}
         </div>
@@ -108,11 +111,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <NavLink
-                to="/login"
-                onClick={() => clearAuthToken()}
-                className="text-muted-foreground hover:text-destructive transition-colors"
-              >
+              <NavLink to="/login" className="text-muted-foreground hover:text-destructive transition-colors">
                 <LogOut className="mr-2 h-4 w-4 shrink-0" />
                 {!collapsed && <span>Sair</span>}
               </NavLink>

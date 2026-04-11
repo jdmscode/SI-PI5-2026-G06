@@ -1,0 +1,48 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    container_name: melanoma_mapper_frontend
+    depends_on:
+      api:
+        condition: service_started 
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000" 
+    restart: unless-stopped
+    container_name: melanoma_mapper_api
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api:/app 
+
+  db:
+    image: mysql:8.0
+    container_name: melanoma_mapper_db
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: melanoma_mapper
+      MYSQL_USER: admin_user
+      MYSQL_PASSWORD: admin_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "admin_user", "-padmin_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_data:

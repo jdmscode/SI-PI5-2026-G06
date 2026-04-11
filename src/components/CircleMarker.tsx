@@ -28,6 +28,7 @@ export function CircleMarker({ position, normal, radius, isActive }: CircleMarke
 
   return (
     <group ref={groupRef} position={position} quaternion={quaternion}>
+      {}
       <mesh position={[0, 0, 0.005]} renderOrder={999}>
         <circleGeometry args={[radius, 48]} />
         <meshBasicMaterial
@@ -40,6 +41,7 @@ export function CircleMarker({ position, normal, radius, isActive }: CircleMarke
         />
       </mesh>
 
+      {}
       <mesh ref={ringRef} position={[0, 0, 0.006]} renderOrder={1000}>
         <ringGeometry args={[radius * 0.88, radius, 48]} />
         <meshBasicMaterial
@@ -52,6 +54,7 @@ export function CircleMarker({ position, normal, radius, isActive }: CircleMarke
         />
       </mesh>
 
+      {}
       <mesh position={[0, 0, 0.007]} renderOrder={1001}>
         <circleGeometry args={[radius * 0.08, 16]} />
         <meshBasicMaterial

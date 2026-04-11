@@ -1,24 +1,17 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
-import { Activity, Eye, EyeOff } from "lucide-react";
+import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
 import authHero from "@/assets/auth-hero.jpg";
-import { loginRequest } from "@/lib/api/requests";
-import { setAuthToken } from "@/lib/auth";
-import { ApiError } from "@/lib/api/client";
-import { isApiConfigured } from "@/lib/api/config";
-import { ApiConfigHint } from "@/components/ApiConfigHint";
+import { useNavigate, Link } from "react-router-dom";
 
 const UF_LIST = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
 interface LoginForm {
@@ -30,43 +23,57 @@ interface LoginForm {
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<LoginForm>({ defaultValues: { uf: "" } });
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
-  const uf = watch("uf");
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>();
 
-  const loginMutation = useMutation({
-    mutationFn: loginRequest,
-    onSuccess: (res) => {
-      setAuthToken(res.accessToken);
-      toast.success("Sessão iniciada");
-      navigate("/dashboard");
-    },
-    onError: (err: unknown) => {
-      const msg = err instanceof ApiError ? err.message : "Falha no login";
-      toast.error(msg);
-    },
-  });
+  // Garante que o campo 'uf' seja registrado e validado pelo react-hook-form
+  useEffect(() => {
+    register("uf", { required: "Estado obrigatório" });
+  }, [register]);
 
-  const onSubmit = (data: LoginForm) => {
-    if (!isApiConfigured()) {
-      toast.error("VITE_API_BASE_URL não está definida.");
-      return;
+  const onSubmit = async (data: LoginForm) => {
+    setIsLoading(true);
+    setApiError("");
+
+    try {
+      // Conecta com a rota /login da nossa API Python na porta 8000
+      const response = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          crm: data.crm,
+          estado: data.uf,
+          senha: data.password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log("Login aprovado pela API!", result);
+        localStorage.setItem("access_token", result.access_token);
+        localStorage.setItem("medico_id", result.medico_id); 
+        localStorage.setItem("medico_nome", result.medico_nome);
+        navigate("/dashboard");
+      } else {
+        console.error("Erro na API:", result);
+        setApiError("Credenciais inválidas. Verifique seu CRM e senha.");
+      }
+    } catch (error) {
+      console.error("Erro ao conectar com a API:", error);
+      setApiError("Não foi possível conectar ao servidor. Tente novamente.");
+    } finally {
+      setIsLoading(false);
     }
-    loginMutation.mutate({
-      crm: data.crm.trim(),
-      uf: data.uf,
-      password: data.password,
-    });
   };
 
   return (
     <div className="min-h-screen flex">
+      {/* Left - Image */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img src={authHero} alt="Tecnologia médica" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
@@ -77,23 +84,17 @@ export default function Login() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <h2 className="text-3xl font-bold text-primary-foreground mb-3">
-              Inteligência artificial
-              <br />
-              a serviço da dermatologia
+              Inteligência Artificial<br />a serviço da Dermatologia
             </h2>
             <p className="text-primary-foreground/80 text-sm max-w-md leading-relaxed">
-              Apoio clínico para identificação e acompanhamento de risco de melanoma com análise assistida por modelos de IA.
+              Apoio clínico avançado para identificação e acompanhamento de risco de melanoma com análise por redes neurais.
             </p>
           </motion.div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card gap-6">
-        {!isApiConfigured() && (
-          <div className="w-full max-w-sm">
-            <ApiConfigHint />
-          </div>
-        )}
+      {}
+      <div className="flex-1 flex items-center justify-center p-8 bg-card">
         <motion.div
           className="w-full max-w-sm space-y-8"
           initial={{ opacity: 0, y: 12 }}
@@ -104,7 +105,7 @@ export default function Login() {
             <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
               <Activity className="w-6 h-6 text-primary-foreground" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Melanoma Mapper Pro</h1>
+            <h1 className="text-xl font-bold text-foreground">DermaScan AI</h1>
             <p className="text-sm text-muted-foreground mt-1">Acesse sua conta profissional</p>
           </div>
 
@@ -116,7 +117,12 @@ export default function Login() {
               <Input
                 id="crm"
                 placeholder="000000"
-                {...register("crm", { required: "CRM obrigatório" })}
+                {...register("crm", { required: "CRM obrigatório",
+                  pattern: {
+                    value: /^[0-9]+$/,
+                    message: "Apenas números são permitidos"
+                  }
+              })}
                 className="h-11"
               />
               {errors.crm && <p className="text-xs text-destructive">{errors.crm.message}</p>}
@@ -126,19 +132,16 @@ export default function Login() {
               <Label htmlFor="uf" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Estado (UF)
               </Label>
-              <Select value={uf || undefined} onValueChange={(v) => setValue("uf", v, { shouldValidate: true })}>
+              <Select onValueChange={(v) => setValue("uf", v, { shouldValidate: true })}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Selecione o estado" />
                 </SelectTrigger>
                 <SelectContent>
-                  {UF_LIST.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
+                  {UF_LIST.map((uf) => (
+                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <input type="hidden" {...register("uf", { required: "UF obrigatória" })} />
               {errors.uf && <p className="text-xs text-destructive">{errors.uf.message}</p>}
             </div>
 
@@ -165,15 +168,33 @@ export default function Login() {
               {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
             </div>
 
-            <Button type="submit" className="w-full h-11 font-semibold" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? "Entrando…" : "Entrar"}
+            {apiError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive text-center font-medium">{apiError}</p>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full h-11 font-semibold" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Autenticando...
+                </>
+              ) : (
+                "Entrar"
+              )}
             </Button>
           </form>
 
+          <div className="flex items-center justify-center gap-1 pt-4 border-t border-border mt-4">
+            <span className="text-sm text-muted-foreground">Não tem conta?</span>
+            <Link to="/register" className="text-sm text-primary hover:underline font-medium">
+              Cadastre-se
+            </Link>
+          </div>
+
           <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-            Acesso exclusivo para profissionais médicos
-            <br />
-            devidamente registrados no CRM.
+            Acesso exclusivo para profissionais médicos<br />devidamente registrados no CRM.
           </p>
         </motion.div>
       </div>

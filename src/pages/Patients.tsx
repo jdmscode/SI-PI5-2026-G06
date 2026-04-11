@@ -1,71 +1,145 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, ArrowUpRight } from "lucide-react";
+import { Search, Plus, Filter, ArrowUpRight, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
-import { ApiConfigHint } from "@/components/ApiConfigHint";
-import { isApiConfigured } from "@/lib/api/config";
-import { fetchPatients } from "@/lib/api/requests";
-import { ApiError } from "@/lib/api/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
 
-const statusConfig = {
-  low: { label: "Baixo Risco", className: "bg-risk-low-subtle text-risk-low" },
-  medium: { label: "Atenção", className: "bg-risk-medium-subtle text-risk-medium" },
-  high: { label: "Alto Risco", className: "bg-risk-high-subtle text-risk-high" },
-};
-
-function initialsFromName(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase() ?? "")
-    .join("");
+interface Patient {
+  id: string;
+  nome: string;
+  idade: number;
+  cpf: string;
+  lesoes: number;
+  risco: string;
+  ultima_consulta: string;
 }
 
+interface NewPatientForm {
+  nome: string;
+  idade: number;
+  cpf: string;
+}
+
+const statusConfig = {
+  "BAIXO RISCO": { label: "Baixo Risco", className: "bg-green-500/10 text-green-600" },
+  "ATENÇÃO": { label: "Atenção", className: "bg-yellow-500/10 text-yellow-600" },
+  "ALTO RISCO": { label: "Alto Risco", className: "bg-red-500/10 text-red-600" },
+};
+
 export default function Patients() {
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
-  const apiOn = isApiConfigured();
 
-  const { data: patients = [], isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["patients"],
-    queryFn: fetchPatients,
-    enabled: apiOn,
-  });
+  const { register, handleSubmit, reset } = useForm<NewPatientForm>();
 
-  const filtered = patients.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const getAuthHeader = () => {
+    const token = localStorage.getItem("access_token");
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    };
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/pacientes", {
+        headers: getAuthHeader()
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data);
+      } else if (response.status === 401) {
+        
+        navigate("/login");
+      }
+    } catch (error) {
+      console.error("Erro ao carregar pacientes:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const handleCreatePatient = async (data: NewPatientForm) => {
+    try {
+      const response = await fetch("http://localhost:8000/pacientes", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        setIsModalOpen(false);
+        reset();
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error("Erro ao cadastrar paciente:", error);
+    }
+  };
+
+  const filtered = patients.filter((p) =>
+    p.nome.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
-      {!apiOn && <ApiConfigHint />}
-
-      {apiOn && isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-foreground">
-            {error instanceof ApiError ? error.message : "Não foi possível carregar os pacientes."}
-          </p>
-          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
-            Tentar novamente
-          </Button>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pacientes</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {apiOn && !isLoading ? `${patients.length} pacientes cadastrados` : "Lista de pacientes"}
+            {isLoading ? "Carregando..." : `${patients.length} pacientes cadastrados`}
           </p>
         </div>
-        <Button className="gap-2 font-semibold" type="button">
-          <Plus className="w-4 h-4" /> Novo Paciente
-        </Button>
+
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 font-semibold">
+              <Plus className="w-4 h-4" /> Novo Paciente
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Cadastrar Novo Paciente</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(handleCreatePatient)} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome Completo</Label>
+                <Input id="nome" {...register("nome", { required: true })} placeholder="Ex: Maria Oliveira" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="idade">Idade</Label>
+                  <Input id="idade" type="number" {...register("idade", { required: true })} placeholder="00" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input id="cpf" {...register("cpf", { required: true })} placeholder="000.000.000-00" />
+                </div>
+              </div>
+              <Button type="submit" className="w-full">Salvar Paciente</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-3">
@@ -76,70 +150,47 @@ export default function Patients() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9 bg-card"
-            disabled={!apiOn || isLoading}
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-2 text-muted-foreground" type="button">
-          <Filter className="w-3.5 h-3.5" /> Filtros
-        </Button>
       </div>
 
-      {apiOn && isLoading ? (
-        <div className="grid gap-3">
-          {[1, 2, 3, 4].map((k) => (
-            <Skeleton key={k} className="h-[72px] w-full rounded-xl" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          {apiOn ? "Nenhum paciente encontrado." : "Sem ligação à API."}
-        </p>
-      ) : (
-        <div className="grid gap-3">
-          {filtered.map((p, i) => {
-            const s = statusConfig[p.status];
-            const initials = initialsFromName(p.name);
+      <div className="grid gap-3">
+        {isLoading ? (
+          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary/40" /></div>
+        ) : filtered.length > 0 ? (
+          filtered.map((p, i) => {
+            const s = statusConfig[p.risco as keyof typeof statusConfig] || statusConfig["BAIXO RISCO"];
             return (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05 }}
-              >
-                <Card
-                  className="shadow-surface border-border hover:shadow-soft transition-shadow duration-300 cursor-pointer"
-                  onClick={() => navigate(`/patients/${p.id}`)}
-                >
+              <motion.div key={p.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <Card className="shadow-sm border-border hover:shadow-md transition-all cursor-pointer" onClick={() => navigate(`/patients/${p.id}`)}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-bold text-primary">{initials || "?"}</span>
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+                        {p.nome.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.age} anos · {p.cpfMasked}
-                        </p>
+                        <p className="font-semibold">{p.nome}</p>
+                        <p className="text-xs text-muted-foreground">{p.idade} anos · {p.cpf}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">
-                          {p.lesions} lesões · {p.lastVisit}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{p.lesoes} lesões · {p.ultima_consulta}</p>
                       </div>
-                      <Badge variant="secondary" className={`text-[10px] font-bold uppercase ${s.className}`}>
-                        {s.label}
-                      </Badge>
+                      <Badge className={`text-[10px] font-bold ${s.className}`}>{s.label}</Badge>
                       <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
             );
-          })}
-        </div>
-      )}
+          })
+        ) : (
+          <div className="text-center p-12 border-2 border-dashed rounded-xl">
+            <p className="text-muted-foreground">Nenhum paciente cadastrado ainda.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
