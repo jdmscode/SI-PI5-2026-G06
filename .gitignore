@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+# Dataset
+melanoma_cancer_dataset/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
