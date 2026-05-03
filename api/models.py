@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Float, JSON
 from database import Base
+
 
 class Medico(Base):
     __tablename__ = "medicos"
@@ -28,7 +29,16 @@ class Lesao(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     data = Column(String(20))
-    localizacao = Column(String(100))
+    posicao_x = Column(Float)
+    posicao_y = Column(Float)
+    posicao_z = Column(Float)
     descricao = Column(Text)
     risco = Column(String(20))
+    classificacao = Column(String(20))
+    confianca = Column(String(20))
+    imagem_path = Column(String(255))
     paciente_id = Column(Integer, ForeignKey("pacientes.id"))
+    localizacao = Column(String(30))
+    parecer_medico = Column(Text, nullable=True)
+    criterios_abcde = Column(JSON, nullable=True)
+    veredito_medico = Column(String(20), nullable=True)

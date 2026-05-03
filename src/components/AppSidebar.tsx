@@ -25,9 +25,7 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Pacientes", url: "/patients", icon: Users },
-  { title: "Mapeamento", url: "/mapping", icon: ScanLine },
-  { title: "Análises IA", url: "/analysis", icon: BrainCircuit },
+  { title: "Pacientes", url: "/patients", icon: Users }
 ];
 
 const secondaryItems = [

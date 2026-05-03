@@ -11,7 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
-
+#imagens de teste
+imagens_teste/
 # Dataset
 melanoma_cancer_dataset/
 # Editor directories and files
@@ -24,3 +25,6 @@ melanoma_cancer_dataset/
 *.njsproj
 *.sln
 *.sw?
+
+#venv
+venv/
