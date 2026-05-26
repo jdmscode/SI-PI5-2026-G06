@@ -12,6 +12,8 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
+#matriz de confusão pra analisar o desempenho do modelo
+
 train_data = datasets.ImageFolder("melanoma_cancer_dataset/train", transform=transform)
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=32, shuffle=True)
 

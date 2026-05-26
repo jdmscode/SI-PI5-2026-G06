@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, ArrowUpRight, Loader2 } from "lucide-react";
+import { Search, Plus, ArrowUpRight, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -32,11 +31,6 @@ interface NewPatientForm {
   cpf: string;
 }
 
-const statusConfig = {
-  "BAIXO RISCO": { label: "Baixo Risco", className: "bg-green-500/10 text-green-600" },
-  "ATENÇÃO": { label: "Atenção", className: "bg-yellow-500/10 text-yellow-600" },
-  "ALTO RISCO": { label: "Alto Risco", className: "bg-red-500/10 text-red-600" },
-};
 
 export default function Patients() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -159,7 +153,6 @@ export default function Patients() {
           <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary/40" /></div>
         ) : filtered.length > 0 ? (
           filtered.map((p, i) => {
-            const s = statusConfig[p.risco as keyof typeof statusConfig] || statusConfig["BAIXO RISCO"];
             return (
               <motion.div key={p.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                 <Card className="shadow-sm border-border hover:shadow-md transition-all cursor-pointer" onClick={() => navigate(`/patients/${p.id}`)}>
@@ -174,10 +167,14 @@ export default function Patients() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">{p.lesoes} lesões · {p.ultima_consulta}</p>
+                      <div className="text-right min-w-fit">
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">
+                          {p.lesoes} lesões
+                        </p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">
+                          {p.ultima_consulta}
+                        </p>
                       </div>
-                      <Badge className={`text-[10px] font-bold ${s.className}`}>{s.label}</Badge>
                       <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </CardContent>

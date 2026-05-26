@@ -25,15 +25,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {}
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} /> 
-          
-          {}
+          <Route path="/register" element={<Register />} />
+
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {}
-          <Route 
+          <Route
             element={
               <ProtectedRoute>
                 <AppLayout />
@@ -43,9 +40,9 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/patients" element={<Patients />} />
             <Route path="/patients/:id" element={<PatientProfile />} />
-            <Route path="/mapping" element={<AnatomicMapper />} />
-            <Route path="/mapping/:id" element={<AnatomicMapper />} /> {}
+            <Route path="/mapping/:id" element={<AnatomicMapper />} />
             <Route path="/analysis" element={<AnalysisResult />} />
+            <Route path="/analysis/:lesaoId" element={<AnalysisResult />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
@@ -56,4 +53,4 @@ const App = () => (
   </QueryClientProvider>
 );
 
-export default App; 
+export default App;
